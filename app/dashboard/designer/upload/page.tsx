@@ -12,6 +12,9 @@ import { useState, useTransition } from "react"
 import { Upload, X } from "lucide-react"
 import Image from "next/image"
 
+const MAX_PREVIEW_MB = 5
+const MAX_SOURCE_MB = 25
+
 export default function UploadDesignPage() {
   const [title, setTitle] = useState("")
   const [description, setDescription] = useState("")
@@ -27,7 +30,6 @@ export default function UploadDesignPage() {
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      console.log("[v0] File selected:", file.name, file.type, file.size)
       setDesignFile(file)
 
       // Generate preview for image files
@@ -43,7 +45,6 @@ export default function UploadDesignPage() {
         }
         reader.readAsDataURL(file)
       } else {
-        // For non-image files, show file icon/placeholder
         setImagePreview(null)
       }
     }
@@ -60,6 +61,12 @@ export default function UploadDesignPage() {
 
     if (!title.trim()) {
       setError("Please enter a title")
+      return
+    }
+
+    const fileMB = designFile.size / (1024 * 1024)
+    if (fileMB > MAX_SOURCE_MB) {
+      setError(`File must be <= ${MAX_SOURCE_MB}MB. Your file is ${fileMB.toFixed(2)}MB.`)
       return
     }
 
@@ -95,6 +102,7 @@ export default function UploadDesignPage() {
           const errorMessages: Record<string, string> = {
             UNAUTHENTICATED: "Please log in to upload designs.",
             VALIDATION_FAILED: result?.message || "Please check your input and try again.",
+            FILE_TOO_LARGE: result?.message || "Your files are too large. Please use smaller files.",
             CONFIG_ERROR: "Storage is not configured. Please contact support.",
             BLOB_UPLOAD_FAILED: "File upload failed. Try a smaller file or different format.",
             DB_INSERT_FAILED: "We couldn't save your design. Please try again.",
@@ -105,7 +113,6 @@ export default function UploadDesignPage() {
           return
         }
 
-        await new Promise((resolve) => setTimeout(resolve, 500))
         window.location.href = `/dashboard/designer/submitted/${result.data.id}`
       } catch (err) {
         setError("Network error. Please try again.")
@@ -183,6 +190,7 @@ export default function UploadDesignPage() {
                     <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
                     <span className="text-sm text-muted-foreground">Click to upload your design</span>
                     <span className="mt-1 text-xs text-muted-foreground">PNG, JPG, PSD, AI, or other formats</span>
+                    <span className="mt-1 text-xs text-muted-foreground">Max {MAX_SOURCE_MB}MB</span>
                     <input
                       id="design_file"
                       type="file"

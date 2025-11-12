@@ -2,8 +2,12 @@ import { NextResponse } from "next/server"
 import { createClient } from "@/lib/supabase/server"
 import { put } from "@vercel/blob"
 
+export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 export const maxDuration = 60
+
+const MAX_PREVIEW_MB = 5
+const MAX_SOURCE_MB = 25
 
 function json(body: Record<string, any>, init?: number | ResponseInit) {
   const status = typeof init === "number" ? init : ((init as ResponseInit)?.status ?? 200)
@@ -38,6 +42,15 @@ export async function POST(req: Request) {
         { ok: false, code: "VALIDATION_FAILED", message: "Title, preview, and source file are required." },
         400,
       )
+    }
+
+    const previewMB = preview.size / (1024 * 1024)
+    const sourceMB = source.size / (1024 * 1024)
+    if (previewMB > MAX_PREVIEW_MB) {
+      return json({ ok: false, code: "FILE_TOO_LARGE", message: `Preview must be <= ${MAX_PREVIEW_MB}MB.` }, 413)
+    }
+    if (sourceMB > MAX_SOURCE_MB) {
+      return json({ ok: false, code: "FILE_TOO_LARGE", message: `Source file must be <= ${MAX_SOURCE_MB}MB.` }, 413)
     }
 
     // Parse tags
@@ -82,12 +95,12 @@ export async function POST(req: Request) {
 
     const { data, error } = await supabase.from("designs").insert(payload).select("id").single()
     if (error) {
+      console.error("[v0][upload] Database insert failed:", error)
       return json(
         {
           ok: false,
           code: "DB_INSERT_FAILED",
           message: "We couldn't save your design.",
-          details: { hint: error.hint, code: error.code, message: error.message },
         },
         500,
       )
@@ -95,6 +108,15 @@ export async function POST(req: Request) {
 
     return json({ ok: true, data: { id: data.id } }, 200)
   } catch (e: any) {
+    console.error("[v0][upload] Unexpected error:", e)
+    const msg = String(e?.message || "").toLowerCase()
+
+    if (msg.includes("too") && msg.includes("large")) {
+      return json(
+        { ok: false, code: "FILE_TOO_LARGE", message: "Upload too large for server. Use smaller files." },
+        413,
+      )
+    }
     const name = e?.name?.toLowerCase?.() || ""
     if (name.includes("blob")) {
       return json(

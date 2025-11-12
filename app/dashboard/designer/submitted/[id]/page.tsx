@@ -49,7 +49,7 @@ export default async function SubmittedPage({ params }: { params: { id: string }
                 We'll review your design for quality and policy compliance. You'll see it in the marketplace once it's
                 approved.
               </p>
-              <p className="font-medium text-foreground">Typical review time: 24–48 hours</p>
+              <p className="font-medium text-foreground">Typical review time: 24 hours</p>
             </div>
 
             {data?.preview_url && (
