@@ -21,26 +21,34 @@ export default function UploadDesignPage() {
   const [priceNonExclusive, setPriceNonExclusive] = useState("")
   const [priceExclusive, setPriceExclusive] = useState("")
   const [tags, setTags] = useState("")
-  const [designFile, setDesignFile] = useState<File | null>(null)
+  const [previewFile, setPreviewFile] = useState<File | null>(null)
+  const [sourceFile, setSourceFile] = useState<File | null>(null)
   const [imagePreview, setImagePreview] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [isPending, startTransition] = useTransition()
   const router = useRouter()
 
-  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePreviewChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (file) {
-      setDesignFile(file)
+      const fileMB = file.size / (1024 * 1024)
+      if (fileMB > MAX_PREVIEW_MB) {
+        setError(`Preview file must be <= ${MAX_PREVIEW_MB}MB. Your file is ${fileMB.toFixed(2)}MB.`)
+        e.target.value = ""
+        return
+      }
 
-      // Generate preview for image files
+      setPreviewFile(file)
+      setError(null)
+
       if (file.type.startsWith("image/")) {
         const reader = new FileReader()
         reader.onloadend = () => {
           setImagePreview(reader.result as string)
         }
         reader.onerror = () => {
-          setError("Failed to read image file. Please try again.")
-          setDesignFile(null)
+          setError("Failed to read preview file. Please try again.")
+          setPreviewFile(null)
           setImagePreview(null)
         }
         reader.readAsDataURL(file)
@@ -50,12 +58,32 @@ export default function UploadDesignPage() {
     }
   }
 
+  const handleSourceChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (file) {
+      const fileMB = file.size / (1024 * 1024)
+      if (fileMB > MAX_SOURCE_MB) {
+        setError(`Source file must be <= ${MAX_SOURCE_MB}MB. Your file is ${fileMB.toFixed(2)}MB.`)
+        e.target.value = ""
+        return
+      }
+
+      setSourceFile(file)
+      setError(null)
+    }
+  }
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
 
-    if (!designFile) {
-      setError("Please select a design file")
+    if (!previewFile) {
+      setError("Please select a preview image")
+      return
+    }
+
+    if (!sourceFile) {
+      setError("Please select a source file")
       return
     }
 
@@ -64,9 +92,16 @@ export default function UploadDesignPage() {
       return
     }
 
-    const fileMB = designFile.size / (1024 * 1024)
-    if (fileMB > MAX_SOURCE_MB) {
-      setError(`File must be <= ${MAX_SOURCE_MB}MB. Your file is ${fileMB.toFixed(2)}MB.`)
+    const previewMB = previewFile.size / (1024 * 1024)
+    const sourceMB = sourceFile.size / (1024 * 1024)
+
+    if (previewMB > MAX_PREVIEW_MB) {
+      setError(`Preview must be <= ${MAX_PREVIEW_MB}MB. Your file is ${previewMB.toFixed(2)}MB.`)
+      return
+    }
+
+    if (sourceMB > MAX_SOURCE_MB) {
+      setError(`Source must be <= ${MAX_SOURCE_MB}MB. Your file is ${sourceMB.toFixed(2)}MB.`)
       return
     }
 
@@ -89,8 +124,8 @@ export default function UploadDesignPage() {
     formData.append("price_non_exclusive", nonExclusivePrice.toString())
     formData.append("price_exclusive", exclusivePrice.toString())
     formData.append("tags", tags.trim())
-    formData.append("preview_file", designFile)
-    formData.append("source_file", designFile)
+    formData.append("preview_file", previewFile)
+    formData.append("source_file", sourceFile)
 
     startTransition(async () => {
       try {
@@ -136,8 +171,8 @@ export default function UploadDesignPage() {
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-6">
               <div className="space-y-2">
-                <Label htmlFor="design_file">Design File</Label>
-                {designFile ? (
+                <Label htmlFor="preview_file">Preview Image (Max {MAX_PREVIEW_MB}MB)</Label>
+                {previewFile ? (
                   <div className="space-y-3">
                     {imagePreview ? (
                       <div className="relative aspect-square w-full overflow-hidden rounded-lg border border-border/40">
@@ -151,7 +186,7 @@ export default function UploadDesignPage() {
                         <button
                           type="button"
                           onClick={() => {
-                            setDesignFile(null)
+                            setPreviewFile(null)
                             setImagePreview(null)
                           }}
                           className="absolute right-2 top-2 rounded-full bg-background/80 p-2 backdrop-blur hover:bg-background"
@@ -163,15 +198,15 @@ export default function UploadDesignPage() {
                       <div className="rounded-lg border border-border/40 bg-background/50 p-4">
                         <div className="flex items-center justify-between">
                           <div>
-                            <p className="font-medium text-sm">{designFile.name}</p>
+                            <p className="font-medium text-sm">{previewFile.name}</p>
                             <p className="text-xs text-muted-foreground">
-                              {(designFile.size / 1024 / 1024).toFixed(2)} MB
+                              {(previewFile.size / 1024 / 1024).toFixed(2)} MB
                             </p>
                           </div>
                           <button
                             type="button"
                             onClick={() => {
-                              setDesignFile(null)
+                              setPreviewFile(null)
                               setImagePreview(null)
                             }}
                             className="rounded-full bg-background/80 p-2 backdrop-blur hover:bg-background"
@@ -184,19 +219,58 @@ export default function UploadDesignPage() {
                   </div>
                 ) : (
                   <label
-                    htmlFor="design_file"
+                    htmlFor="preview_file"
                     className="flex aspect-square w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 bg-background/50 transition-colors hover:border-accent/50 hover:bg-accent/5"
                   >
                     <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
-                    <span className="text-sm text-muted-foreground">Click to upload your design</span>
-                    <span className="mt-1 text-xs text-muted-foreground">PNG, JPG, PSD, AI, or other formats</span>
+                    <span className="text-sm text-muted-foreground">Click to upload preview</span>
+                    <span className="mt-1 text-xs text-muted-foreground">PNG or JPG</span>
+                    <span className="mt-1 text-xs text-muted-foreground">Max {MAX_PREVIEW_MB}MB</span>
+                    <input
+                      id="preview_file"
+                      type="file"
+                      accept="image/png,image/jpeg,image/jpg"
+                      className="hidden"
+                      onChange={handlePreviewChange}
+                      required
+                    />
+                  </label>
+                )}
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="source_file">Source File (Max {MAX_SOURCE_MB}MB)</Label>
+                {sourceFile ? (
+                  <div className="rounded-lg border border-border/40 bg-background/50 p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="font-medium text-sm">{sourceFile.name}</p>
+                        <p className="text-xs text-muted-foreground">{(sourceFile.size / 1024 / 1024).toFixed(2)} MB</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => setSourceFile(null)}
+                        className="rounded-full bg-background/80 p-2 backdrop-blur hover:bg-background"
+                      >
+                        <X className="h-4 w-4" />
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <label
+                    htmlFor="source_file"
+                    className="flex min-h-32 w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-border/40 bg-background/50 transition-colors hover:border-accent/50 hover:bg-accent/5"
+                  >
+                    <Upload className="mb-2 h-8 w-8 text-muted-foreground" />
+                    <span className="text-sm text-muted-foreground">Click to upload source file</span>
+                    <span className="mt-1 text-xs text-muted-foreground">PSD, AI, Sketch, Figma, or other formats</span>
                     <span className="mt-1 text-xs text-muted-foreground">Max {MAX_SOURCE_MB}MB</span>
                     <input
-                      id="design_file"
+                      id="source_file"
                       type="file"
-                      accept="image/*,.psd,.ai,.sketch,.fig"
+                      accept=".psd,.ai,.sketch,.fig,image/*"
                       className="hidden"
-                      onChange={handleFileChange}
+                      onChange={handleSourceChange}
                       required
                     />
                   </label>
