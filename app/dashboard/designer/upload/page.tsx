@@ -105,10 +105,8 @@ export default function UploadDesignPage() {
           return
         }
 
-        // Success - redirect to the design page
         await new Promise((resolve) => setTimeout(resolve, 500))
-        router.push(`/marketplace/${result.data.id}`)
-        router.refresh()
+        window.location.href = `/dashboard/designer/submitted/${result.data.id}`
       } catch (err) {
         setError("Network error. Please try again.")
       }
