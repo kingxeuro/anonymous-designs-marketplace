@@ -8,6 +8,7 @@ import { notFound } from "next/navigation"
 import Image from "next/image"
 import Link from "next/link"
 import { ArrowLeft, ShoppingCart } from "lucide-react"
+import StartAnonChatButton from "./start-anon-chat-button"
 
 export default async function DesignDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createClient()
@@ -190,6 +191,11 @@ export default async function DesignDetailPage({ params }: { params: Promise<{ i
                 </CardContent>
               </Card>
             </div>
+
+            {/* Anonymous Chat Button */}
+            {user && user.id !== design.designer_id && (
+              <StartAnonChatButton designId={design.id} designerId={design.designer_id} />
+            )}
 
             {/* Info */}
             <div className="rounded-lg bg-muted/50 p-4 text-sm text-muted-foreground">
