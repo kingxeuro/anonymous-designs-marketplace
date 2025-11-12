@@ -11,7 +11,6 @@ import { useRouter } from "next/navigation"
 import { useState, useTransition } from "react"
 import { Upload, X } from "lucide-react"
 import Image from "next/image"
-import { submitDesignAction } from "@/app/actions/designs"
 
 export default function UploadDesignPage() {
   const [title, setTitle] = useState("")
@@ -87,42 +86,31 @@ export default function UploadDesignPage() {
     formData.append("source_file", designFile)
 
     startTransition(async () => {
-      console.log("[v0] Submitting design upload...")
-
       try {
-        const result = await submitDesignAction(formData)
+        const res = await fetch("/api/designs/submit", { method: "POST", body: formData })
+        const result = await res.json().catch(() => null)
 
-        console.log("[v0] Upload result:", result)
-
-        if (!result) {
-          console.error("[v0] No result returned from server action")
-          setError("No response from server. Please try again.")
-          return
-        }
-
-        if (result.ok) {
-          console.log("[v0] Upload successful, design ID:", result.data?.id)
-          await new Promise((resolve) => setTimeout(resolve, 500))
-          router.push(`/marketplace/${result.data?.id}`)
-          router.refresh()
-        } else {
+        if (!res.ok || !result?.ok) {
+          const code = result?.code || "UNEXPECTED"
           const errorMessages: Record<string, string> = {
             UNAUTHENTICATED: "Please log in to upload designs.",
-            VALIDATION_FAILED: result.message || "Please check your input and try again.",
+            VALIDATION_FAILED: result?.message || "Please check your input and try again.",
             CONFIG_ERROR: "Storage is not configured. Please contact support.",
             BLOB_UPLOAD_FAILED: "File upload failed. Try a smaller file or different format.",
             DB_INSERT_FAILED: "We couldn't save your design. Please try again.",
             UNEXPECTED: "Something went wrong. Please try again.",
           }
-          const errorMsg = errorMessages[result.code] || result.message || "Upload failed."
-          console.error("[v0] Upload failed:", { code: result.code, message: result.message })
+          const errorMsg = errorMessages[code] || result?.message || "Upload failed."
           setError(errorMsg)
+          return
         }
+
+        // Success - redirect to the design page
+        await new Promise((resolve) => setTimeout(resolve, 500))
+        router.push(`/marketplace/${result.data.id}`)
+        router.refresh()
       } catch (err) {
-        console.error("[v0] Client error:", err)
-        setError(
-          err instanceof Error ? `Upload failed: ${err.message}` : "An unexpected error occurred. Please try again.",
-        )
+        setError("Network error. Please try again.")
       }
     })
   }
