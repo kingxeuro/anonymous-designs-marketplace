@@ -11,6 +11,11 @@ export async function submitDesignAction(formData: FormData): Promise<ActionResu
     noStore()
     console.log("[v0][upload] ==> START")
 
+    if (!formData) {
+      console.error("[v0][upload] No formData received")
+      return err("VALIDATION_FAILED", "No form data received")
+    }
+
     const supabase = await createClient()
     const {
       data: { user },
@@ -23,35 +28,44 @@ export async function submitDesignAction(formData: FormData): Promise<ActionResu
     }
     console.log("[v0][upload] authenticated as:", user.email)
 
-    const { data: profile, error: profileCheckError } = await supabase
-      .from("profiles")
-      .select("id, display_name, role")
-      .eq("id", user.id)
-      .maybeSingle()
+    try {
+      const { data: profile, error: profileCheckError } = await supabase
+        .from("profiles")
+        .select("id, display_name, role")
+        .eq("id", user.id)
+        .maybeSingle()
 
-    if (!profile) {
-      console.log("[v0][upload] Profile missing, creating fallback profile...")
-
-      const displayName =
-        user.user_metadata?.display_name || user.email?.split("@")[0] || `User_${user.id.substring(0, 8)}`
-
-      const role = user.user_metadata?.role || "designer"
-
-      const { error: createError } = await supabase.from("profiles").insert({
-        id: user.id,
-        display_name: displayName,
-        role: role,
-      })
-
-      // Ignore duplicate errors (race condition)
-      if (createError && createError.code !== "23505") {
-        console.error("[v0][upload] Failed to create profile:", createError)
-        return err("PROFILE_ERROR", "Your profile could not be created. Please log out and log back in.")
+      if (profileCheckError) {
+        console.error("[v0][upload] Profile check error:", profileCheckError)
       }
 
-      console.log("[v0][upload] Fallback profile created successfully")
-    } else {
-      console.log("[v0][upload] Profile exists:", profile.display_name, profile.role)
+      if (!profile) {
+        console.log("[v0][upload] Profile missing, creating fallback profile...")
+
+        const displayName =
+          user.user_metadata?.display_name || user.email?.split("@")[0] || `User_${user.id.substring(0, 8)}`
+
+        const role = user.user_metadata?.role || "designer"
+
+        const { error: createError } = await supabase.from("profiles").insert({
+          id: user.id,
+          display_name: displayName,
+          role: role,
+        })
+
+        // Ignore duplicate errors (race condition)
+        if (createError && createError.code !== "23505") {
+          console.error("[v0][upload] Failed to create profile:", createError)
+          // Don't fail here - continue and let the foreign key check catch it
+        } else {
+          console.log("[v0][upload] Fallback profile created successfully")
+        }
+      } else {
+        console.log("[v0][upload] Profile exists:", profile.display_name, profile.role)
+      }
+    } catch (profileError: any) {
+      // If profile check fails entirely, log but continue - the FK will catch real issues
+      console.error("[v0][upload] Profile check threw error:", profileError?.message)
     }
 
     const title = ((formData.get("title") as string) || "").trim()
@@ -102,12 +116,12 @@ export async function submitDesignAction(formData: FormData): Promise<ActionResu
 
     if (pne === null || isNaN(pne) || pne <= 0) {
       console.log("[v0][upload] invalid non-exclusive price:", price_non_exclusive)
-      return err("VALIDATION_FAILED", "Non-exclusive price must be a valid number greater than $0. Example: 49.99")
+      return err("VALIDATION_FAILED", "Non-exclusive price must be a valid number greater than $0")
     }
 
     if (pex === null || isNaN(pex) || pex <= 0) {
       console.log("[v0][upload] invalid exclusive price:", price_exclusive)
-      return err("VALIDATION_FAILED", "Exclusive price must be a valid number greater than $0. Example: 499.99")
+      return err("VALIDATION_FAILED", "Exclusive price must be a valid number greater than $0")
     }
 
     if (pex <= pne) {
@@ -153,8 +167,9 @@ export async function submitDesignAction(formData: FormData): Promise<ActionResu
       image_url = sourceBlob.url
       console.log("[v0][upload] source uploaded:", image_url)
     } catch (blobError: any) {
-      console.error("[v0][upload] BLOB ERROR:", blobError?.message || blobError)
-      return err("BLOB_UPLOAD_FAILED", "Failed to upload files. Try smaller files or another format.")
+      console.error("[v0][upload] BLOB ERROR:", blobError)
+      const blobErrorMsg = blobError?.message || "Unknown blob error"
+      return err("BLOB_UPLOAD_FAILED", `Failed to upload files: ${blobErrorMsg}`)
     }
 
     const payload = {
@@ -199,8 +214,13 @@ export async function submitDesignAction(formData: FormData): Promise<ActionResu
     console.log("[v0][upload] ==> SUCCESS! Design ID:", data.id)
     return ok({ id: data.id })
   } catch (unexpectedError: any) {
-    console.error("[v0][upload] UNEXPECTED ERROR:", unexpectedError?.message || unexpectedError)
-    return err("UNEXPECTED", "An unexpected error occurred. Please try again.")
+    console.error("[v0][upload] UNEXPECTED ERROR:", {
+      name: unexpectedError?.name,
+      message: unexpectedError?.message,
+      stack: unexpectedError?.stack,
+    })
+    const errorMsg = unexpectedError?.message || "Unknown error occurred"
+    return err("UNEXPECTED", `An unexpected error occurred: ${errorMsg}`)
   }
 }
 
