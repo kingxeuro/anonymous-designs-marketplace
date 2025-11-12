@@ -105,25 +105,23 @@ export default function UploadDesignPage() {
           return
         }
 
-        if ("ok" in result && result.ok) {
+        if (result.ok) {
           console.log("[v0] Upload successful, design ID:", result.data.id)
           await new Promise((resolve) => setTimeout(resolve, 1000))
           router.push(`/marketplace/${result.data.id}`)
           router.refresh()
-        } else if ("ok" in result && !result.ok) {
+        } else {
           const errorMessages: Record<string, string> = {
-            UNAUTHENTICATED: "Please log in to upload designs.",
-            VALIDATION_FAILED: result.message,
-            CONFIG_ERROR: "Storage is not configured. Contact support.",
-            BLOB_UPLOAD_FAILED: "File upload failed. Try smaller files or another format.",
-            DB_INSERT_FAILED: "We couldn't save your design. Try again shortly.",
-            UNEXPECTED: "Something went wrong while uploading.",
+            UNAUTHENTICATED: "🔒 Please log in to upload designs.",
+            VALIDATION_FAILED: `⚠️ ${result.message}`,
+            CONFIG_ERROR: "⚙️ Storage is not configured. Contact support.",
+            BLOB_UPLOAD_FAILED: "📁 File upload failed. Try smaller files or another format.",
+            DB_INSERT_FAILED: "💾 We couldn't save your design. Try again shortly.",
+            UNEXPECTED: "❌ Something went wrong while uploading.",
           }
           const errorMsg = errorMessages[result.code] || result.message || "Upload failed."
-          console.log("[v0] Upload failed:", errorMsg)
+          console.log("[v0] Upload failed:", { code: result.code, message: result.message })
           setError(errorMsg)
-        } else {
-          setError(result.error || "Upload failed. Please try again.")
         }
       } catch (err) {
         console.error("[v0] Client-side error calling server action:", err)
