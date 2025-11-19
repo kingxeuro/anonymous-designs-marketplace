@@ -30,6 +30,11 @@ export default async function MarketplacePage({
     profile = data
   }
 
+  console.log("[v0] Marketplace - Starting query", {
+    user: user ? user.id : 'anonymous',
+    hasProfile: !!profile
+  })
+
   let query = supabase
     .from("designs")
     .select("*, profiles!designs_designer_id_fkey(display_name)")
@@ -48,13 +53,30 @@ export default async function MarketplacePage({
   const { data: designs, error } = await query.order("created_at", { ascending: false })
 
   console.log("[v0] Marketplace query result:", { 
-    designCount: designs?.length, 
-    error: error?.message,
-    user: user ? 'authenticated' : 'anonymous'
+    designCount: designs?.length || 0, 
+    hasError: !!error,
+    errorMessage: error?.message,
+    errorCode: error?.code,
+    errorDetails: error?.details,
+    user: user ? 'authenticated' : 'anonymous',
+    statusFilter: 'approved'
   })
 
   if (error) {
-    console.error("[v0] Marketplace query error:", error)
+    console.error("[v0] Marketplace query error details:", {
+      message: error.message,
+      code: error.code,
+      details: error.details,
+      hint: error.hint
+    })
+  }
+
+  if (designs && designs.length > 0) {
+    console.log("[v0] Successfully loaded designs:", designs.map(d => ({
+      id: d.id,
+      title: d.title,
+      status: d.status
+    })))
   }
 
   // Get all unique tags
