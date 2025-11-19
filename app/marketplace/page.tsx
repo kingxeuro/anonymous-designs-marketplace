@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import Link from "next/link"
 import Image from "next/image"
-import { Search, MessageCircle } from "lucide-react"
+import { Search, MessageCircle } from 'lucide-react'
 
 export const dynamic = "force-dynamic"
 export const revalidate = 0
@@ -45,7 +45,17 @@ export default async function MarketplacePage({
     query = query.contains("tags", [params.tag])
   }
 
-  const { data: designs } = await query.order("created_at", { ascending: false })
+  const { data: designs, error } = await query.order("created_at", { ascending: false })
+
+  console.log("[v0] Marketplace query result:", { 
+    designCount: designs?.length, 
+    error: error?.message,
+    user: user ? 'authenticated' : 'anonymous'
+  })
+
+  if (error) {
+    console.error("[v0] Marketplace query error:", error)
+  }
 
   // Get all unique tags
   const { data: allDesigns } = await supabase.from("designs").select("tags").eq("status", "approved")
@@ -97,8 +107,14 @@ export default async function MarketplacePage({
           )}
         </div>
 
-        {/* Designs Grid */}
-        {!designs || designs.length === 0 ? (
+        {error ? (
+          <Card className="border-border/40 bg-card/50 backdrop-blur">
+            <CardContent className="flex flex-col items-center justify-center py-12 text-center">
+              <h3 className="mb-2 text-lg font-semibold text-destructive">Error loading designs</h3>
+              <p className="text-sm text-muted-foreground">{error.message}</p>
+            </CardContent>
+          </Card>
+        ) : !designs || designs.length === 0 ? (
           <Card className="border-border/40 bg-card/50 backdrop-blur">
             <CardContent className="flex flex-col items-center justify-center py-12 text-center">
               <h3 className="mb-2 text-lg font-semibold">No designs found</h3>
