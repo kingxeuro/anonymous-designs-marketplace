@@ -28,6 +28,11 @@ ALTER TABLE public.transactions
 -- RLS Policies for conversations
 ALTER TABLE public.conversations ENABLE ROW LEVEL SECURITY;
 
+-- Drop existing policies before recreating them to avoid duplicates
+DROP POLICY IF EXISTS "conversations_select_participant" ON public.conversations;
+DROP POLICY IF EXISTS "conversations_insert_buyer" ON public.conversations;
+DROP POLICY IF EXISTS "conversations_update_participant" ON public.conversations;
+
 CREATE POLICY "conversations_select_participant" ON public.conversations
   FOR SELECT USING (buyer_id = auth.uid() OR designer_id = auth.uid());
 
@@ -39,6 +44,10 @@ CREATE POLICY "conversations_update_participant" ON public.conversations
 
 -- RLS Policies for messages
 ALTER TABLE public.messages ENABLE ROW LEVEL SECURITY;
+
+-- Drop existing message policies before recreating them
+DROP POLICY IF EXISTS "messages_select_participant" ON public.messages;
+DROP POLICY IF EXISTS "messages_insert_participant" ON public.messages;
 
 CREATE POLICY "messages_select_participant" ON public.messages
   FOR SELECT USING (
@@ -59,13 +68,14 @@ CREATE POLICY "messages_insert_participant" ON public.messages
     )
   );
 
--- Indexes
-CREATE INDEX idx_conversations_buyer_id ON public.conversations(buyer_id);
-CREATE INDEX idx_conversations_designer_id ON public.conversations(designer_id);
-CREATE INDEX idx_conversations_design_id ON public.conversations(design_id);
-CREATE INDEX idx_messages_conversation_id ON public.messages(conversation_id);
-CREATE INDEX idx_messages_created_at ON public.messages(created_at DESC);
+-- Indexes (IF NOT EXISTS supported in most Postgres versions)
+CREATE INDEX IF NOT EXISTS idx_conversations_buyer_id ON public.conversations(buyer_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_designer_id ON public.conversations(designer_id);
+CREATE INDEX IF NOT EXISTS idx_conversations_design_id ON public.conversations(design_id);
+CREATE INDEX IF NOT EXISTS idx_messages_conversation_id ON public.messages(conversation_id);
+CREATE INDEX IF NOT EXISTS idx_messages_created_at ON public.messages(created_at DESC);
 
 -- Trigger for conversation updated_at
+DROP TRIGGER IF EXISTS update_conversations_updated_at ON public.conversations;
 CREATE TRIGGER update_conversations_updated_at BEFORE UPDATE ON public.conversations
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

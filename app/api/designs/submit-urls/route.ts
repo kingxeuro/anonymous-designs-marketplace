@@ -47,7 +47,7 @@ export async function POST(req: Request) {
       price_non_exclusive: price_non_exclusive ?? null,
       price_exclusive: price_exclusive ?? null,
       tags: Array.isArray(tags) ? tags.map(String) : [],
-      status: "approved" as const,
+      status: "pending" as const,
     }
 
     const { data, error } = await supabase.from("designs").insert(payload).select("id").single()

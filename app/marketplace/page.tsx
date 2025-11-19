@@ -9,6 +9,9 @@ import Link from "next/link"
 import Image from "next/image"
 import { Search, MessageCircle } from "lucide-react"
 
+export const dynamic = "force-dynamic"
+export const revalidate = 0
+
 export default async function MarketplacePage({
   searchParams,
 }: {
@@ -27,7 +30,6 @@ export default async function MarketplacePage({
     profile = data
   }
 
-  // Get approved designs
   let query = supabase
     .from("designs")
     .select("*, profiles!designs_designer_id_fkey(display_name)")

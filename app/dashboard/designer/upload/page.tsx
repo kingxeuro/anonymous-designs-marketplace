@@ -149,7 +149,7 @@ export default function UploadDesignPage() {
         return
       }
 
-      window.location.href = `/dashboard/designer/submitted/${result.data.id}`
+      window.location.href = "/dashboard/designer/upload/success"
     } catch (err) {
       console.error("[client-upload] error", err)
       setError("Upload failed. Try a smaller file or a different format.")

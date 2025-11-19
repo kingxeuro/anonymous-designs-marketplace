@@ -122,6 +122,12 @@ export default function DesignerDashboardPage() {
           </Button>
         </div>
 
+        {designs.some((d) => d?.status === "pending") && (
+          <div className="mb-4 rounded-lg border border-yellow-300 bg-yellow-50 p-3 text-sm text-yellow-800">
+            You have items pending review. Approved items will appear in the marketplace.
+          </div>
+        )}
+
         {error && (
           <Alert variant="destructive" className="mb-6">
             <AlertCircle className="h-4 w-4" />
